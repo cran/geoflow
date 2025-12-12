@@ -1,11 +1,12 @@
 # geoflow <a href="https://github.com/r-geoflow/geoflow"><img src='https://github.com/r-geoflow/geoflow-logos/blob/main/geoflow_square.png?raw=true' align="right" height="139" /></a>
 
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Build Status](https://github.com/r-geoflow/geoflow/actions/workflows/r-cmd-check.yml/badge.svg?branch=master)](https://github.com/r-geoflow/geoflow/actions/workflows/r-cmd-check.yml)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/geoflow)](https://cran.r-project.org/package=geoflow)
-[![Github_Status_Badge](https://img.shields.io/badge/Github-1.0.0-blue.svg)](https://github.com/r-geoflow/geoflow)
+[![Github_Status_Badge](https://img.shields.io/badge/Github-1.1.0-blue.svg)](https://github.com/r-geoflow/geoflow)
 [![DOI](https://zenodo.org/badge/DOI//10.5281/zenodo.3138920.svg)](https://doi.org//10.5281/zenodo.3138920)
 
-**Tools to Orchestrate Geospatial (Meta)Data Management Workflows and Manage FAIR Services**
+**Orchestrate Geospatial (Meta)Data Management Workflows and Manage FAIR Services**
 
 ``geoflow`` provides an engine to facilitate the orchestration and execution of metadata-driven data management workflows, in compliance with FAIR (Findable, Accessible, Interoperable and Reusable) data management principles. By means of a pivot metadata model, relying on the [DublinCore](https://dublincore.org/) standard, a unique source of metadata can be used to operate multiple and inter-connected data management actions. Users can also customise their own workflows by creating specific actions but the library comes with a set of native actions that have been identified as key steps most data managers, in particular actions oriented to the publication on the web of metadata and data resources to provide standard discovery and access services. 
 

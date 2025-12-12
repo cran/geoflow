@@ -15,7 +15,7 @@
 #'
 geoflow_data <- R6Class("geoflow_data",
   private = list(
-    supportedSourceTypes = c("dbtable", "dbview", "dbquery", "zip", "shp", "csv", "gpkg", "other","nc", "geotiff","parquet"),
+    supportedSourceTypes = c("dbtable", "dbview", "dbquery", "zip", "shp", "csv", "gpkg", "other","nc", "geotiff","parquet", "wfs", "wcs"),
     supportedUploadTypes = c("dbtable", "dbview", "dbquery", "shp", "gpkg", "other","nc", "geotiff", "parquet"),
     supportedGeomPossibleNames = c("the_geom", "geom", "wkt", "geom_wkt", "wkb", "geom_wkb"),
     supportedXPossibleNames = c("x","lon","long","longitude","decimalLongitude"),
@@ -36,6 +36,8 @@ geoflow_data <- R6Class("geoflow_data",
     access = "default",
     #'@field source source
     source = NULL,
+    #'@field sourceFid sourceFid
+    sourceFid = NULL,
     #'@field sourceSql sourceSql
     sourceSql = NULL,
     #'@field sourceType source type
@@ -169,6 +171,11 @@ geoflow_data <- R6Class("geoflow_data",
         }
         if(any(sapply(data_props, function(x){x$key=="source"}))) self$setSource(data_props$source$values)
           
+        #sourceFid
+        if(!is.null(data_props$sourceFid)){
+          self$setSourceFid(data_props$sourceFid$values)
+        }
+        
         #sourceSql
         if(!is.null(data_props$sourceSql)){
           sourceSql <- paste(data_props$sourceSql$values, collapse=",")
@@ -671,6 +678,13 @@ geoflow_data <- R6Class("geoflow_data",
     setSource = function(source){
       if(!is(source, "list")) source <- list(source)
       self$source <- source
+    },
+    
+    #'@description Set source FID, object of class \code{"character"} (single source FID), or \code{list}.
+    #' @param sourceFid sourceFid
+    setSourceFid = function(sourceFid){
+      if(!is(sourceFid, "list")) sourceFid <- list(sourceFid)
+      self$sourceFid <- sourceFid
     },
     
     #'@description This is a convenience method for users that want to specify directly

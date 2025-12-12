@@ -430,7 +430,7 @@ geoflow_entity <- R6Class("geoflow_entity",
       accessors <- list_data_accessors(raw = TRUE)
       
       data_objects <- list()
-      if(is.null(self$data$dir)){
+      if(length(self$data$getData())==0){
         data_objects <- list(self$data)
       }else{
         data_objects <- self$data$getData()
@@ -443,7 +443,7 @@ geoflow_entity <- R6Class("geoflow_entity",
       
         config$logger$INFO("Copying data to entity job data directory '%s'", getwd())
         
-        if(!data_object$sourceType %in% c("dbtable", "dbquery", "dbview")) for(i in 1:length(data_object$source)){
+        if(!data_object$sourceType %in% c("dbtable", "dbquery", "dbview", "wfs", "wcs")) for(i in 1:length(data_object$source)){
         
           datasource <- data_object$source[[i]]
           if(is.null(datasource)) next;
@@ -618,7 +618,7 @@ geoflow_entity <- R6Class("geoflow_entity",
       setwd("./data")
       
       data_objects <- list()
-      if(is.null(self$data$dir)){
+      if(length(self$data$getData())==0){
         data_objects <- list(self$data)
       }else{
         data_objects <- self$data$getData()
@@ -653,7 +653,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           
           #in case of a datasource type requiring a file we check its presence
           #if absent we abort the function enrich With features
-          types_without_file <- c("dbtable","dbview","dbquery")
+          types_without_file <- c("dbtable","dbview","dbquery","wfs","wcs")
           datasource_file_needed <- !(data_object$sourceType %in% types_without_file)
           if(datasource_file_needed && is.null(datasource_file)){
             warnMsg <- sprintf("No source file/URL for datasource '%s'. Data source copying aborted!", datasource_name)
@@ -705,7 +705,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               if(data_object$uploadType == "geotiff") data_object$setSpatialRepresentationType("grid")
             }
             #overwrite top sourceType
-            if(is.null(self$data$dir)){
+            if(length(self$data$getData())==0){
               self$data$sourceType = data_object$sourceType 
               self$data$uploadType = data_object$uploadType
               self$data$setSpatialRepresentationType(data_object$spatialRepresentationType)
@@ -718,7 +718,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           return(data_object)
         })
         
-        if(is.null(self$data$dir)){
+        if(length(self$data$getData())==0){
           self$data <- data_objects[[1]]
         }else{
           self$data$data <- data_objects
@@ -740,10 +740,12 @@ geoflow_entity <- R6Class("geoflow_entity",
       
       skipDynamicBbox <- if(!is.null(config$profile$options$skipDynamicBbox)) config$profile$options$skipDynamicBbox else FALSE
       enrichDataStrategy <- if(!is.null(config$profile$options$enrichDataStrategy)) config$profile$options$enrichDataStrategy else "first"
-      #TODO enrichDataSourceStrategy <- if(!is.null(config$profile$options$enrichDataSourceStrategy)) config$profile$options$enrichDataSourceStrategy else "first"
+      computeSurface <- if(!is.null(config$profile$options$computeSurface)) config$profile$options$computeSurface else FALSE
+      computeSurfaceField <- if(!is.null(config$profile$options$computeSurfaceField)) config$profile$options$computeSurfaceField else "surface"
+      computeSurfaceCrs <- if(!is.null(config$profile$options$computeSurfaceCrs)) config$profile$options$computeSurfaceCrs else "+proj=eck4"
       
       data_objects <- list()
-      if(is.null(self$data$dir)){
+      if(length(self$data$getData())==0){
         data_objects <- list(self$data)
       }else{
         data_objects <- self$data$getData()
@@ -828,10 +830,9 @@ geoflow_entity <- R6Class("geoflow_entity",
                      attr(sf.data, "sf_column") <- "the_geom"
                      sf.data$geometry <- NULL
                    }
-                   data_object$setFeatures(sf.data)
                    
-                   #dynamic srid
                    if(is(sf.data, "sf")){
+                     #dynamic srid
                      epsgcode = get_epsg_code(sf.data)
                      if(!is.na(epsgcode)){
                        data_srids <<- c(data_srids, epsgcode)
@@ -839,9 +840,16 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
+                     }
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
                      }
                    }
+                   
+                   data_object$setFeatures(sf.data)
   
                  }else{
                    warnMsg <- sprintf("Cannot read Shapefile data source '%s'. Dynamic metadata computation aborted!", trgShp)
@@ -870,19 +878,26 @@ geoflow_entity <- R6Class("geoflow_entity",
                    tbl.spec[1]$cols = sapply(tbl.spec[1]$cols, function(x){spec = x;if(is(x, "collector_logical")){spec = readr::col_character()}; return(spec)})
                    tbl.data <- as.data.frame(readr::read_csv(trgCsv, col_types = tbl.spec))
                    if(is(sf.data,"sf")){
-                     if(nrow(tbl.data)==nrow(sf.data)){
-                       sf.data <- st_set_geometry(tbl.data, st_geometry(sf.data))
-                     }else if(nrow(sf.data)==0){
+                     # if(nrow(tbl.data)==nrow(sf.data)){
+                     #   sf.data <- sf::st_set_geometry(tbl.data, st_geometry(sf.data))
+                     # }else if(nrow(sf.data)==0){
+                     if(nrow(sf.data)==0){
                        if(any(colnames(tbl.data)%in% data_object$getAllowedGeomPossibleNames())){
                          geom_column_name = colnames(tbl.data)[colnames(tbl.data)%in% data_object$getAllowedGeomPossibleNames()][1]
-                         sf.data <- sf::st_as_sf(tbl.data, wkt = geom_column_name)
+                         if(is.na(geom_column_name)) geom_column_name = colnames(tbl.data)[colnames(tbl.data)%in% toupper(data_object$getAllowedGeomPossibleNames())][1]
+                         if(!is.na(geom_column_name)) sf.data <- sf::st_as_sf(tbl.data, wkt = geom_column_name)
+                       }
+                       if(!"geometry" %in% colnames(tbl.data)){
+                         if("geom" %in% colnames(sf.data)) sf.data$geom <- NULL
+                         colnames(sf.data)[colnames(sf.data)=="geometry"] <- "geom"
+                         st_geometry(sf.data) <- "geom" #default in spatial DBIs if data imported through sf
                        }
                      }
-                     if(!"geometry" %in% colnames(tbl.data)){
-                       if("geom" %in% colnames(sf.data)) sf.data$geom <- NULL
-                       colnames(sf.data)[colnames(sf.data)=="geometry"] <- "geom"
-                       st_geometry(sf.data) <- "geom" #default in spatial DBIs if data imported through sf
-                     }
+                     # if(!"geometry" %in% colnames(tbl.data)){
+                     #   if("geom" %in% colnames(sf.data)) sf.data$geom <- NULL
+                     #   colnames(sf.data)[colnames(sf.data)=="geometry"] <- "geom"
+                     #   st_geometry(sf.data) <- "geom" #default in spatial DBIs if data imported through sf
+                     # }
                    }else{
                      sf.data <- tbl.data
                    }
@@ -892,10 +907,9 @@ geoflow_entity <- R6Class("geoflow_entity",
                    if(!is.null(data_object$cqlfilter)){
                      sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                    }
-                   data_object$setFeatures(sf.data)
                    
-                   #dynamic srid
                    if(is(sf.data, "sf")){
+                     #dynamic srid
                      epsgcode = get_epsg_code(sf.data)
                      if(!is.na(epsgcode)){
                         data_srids <<- c(data_srids, epsgcode)
@@ -903,9 +917,16 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
+                     }
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
                      }
                    }
+                   
+                   data_object$setFeatures(sf.data)
                    
                  }else{
                    warnMsg <- sprintf("Cannot read CSV data source '%s'. Dynamic metadata computation aborted!", trgCsv)
@@ -937,10 +958,9 @@ geoflow_entity <- R6Class("geoflow_entity",
                    if(!is.null(data_object$cqlfilter)){
                      sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                    }
-                   data_object$setFeatures(sf.data)
                    
-                   #dynamic srid
                    if(is(sf.data, "sf")){
+                     #dynamic srid
                      epsgcode = get_epsg_code(sf.data)
                      if(!is.na(epsgcode)){
                        data_srids <<- c(data_srids, epsgcode)
@@ -948,9 +968,16 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
+                     }
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
                      }
                    }
+                   
+                   data_object$setFeatures(sf.data)
                    
                  }else{
                    warnMsg <- sprintf("Cannot read GeoPackage data source '%s'. Dynamic metadata computation aborted!", trgGpkg)
@@ -983,10 +1010,9 @@ geoflow_entity <- R6Class("geoflow_entity",
                    if(!is.null(data_object$cqlfilter)){
                      sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                    }
-                   data_object$setFeatures(sf.data)
                    
-                   #dynamic srid
                    if(is(sf.data, "sf")){
+                     #dynamic srid
                      epsgcode = get_epsg_code(sf.data)
                      if(!is.na(epsgcode)){
                        data_srids <<- c(data_srids, epsgcode)
@@ -994,9 +1020,16 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
+                     }
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
                      }
                    }
+                   
+                   data_object$setFeatures(sf.data)
                    
                  }else{
                    warnMsg <- sprintf("Cannot read GeoPackage data source '%s'. Dynamic metadata computation aborted!", trgGpkg)
@@ -1020,7 +1053,6 @@ geoflow_entity <- R6Class("geoflow_entity",
                    if(!is.null(data_object$cqlfilter)){
                      sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                    }
-                   data_object$setFeatures(sf.data)
                    
                    if(is(sf.data, "sf")){
                      #dynamic srid
@@ -1031,16 +1063,24 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
                      }
                      
                      #dynamic spatial extent
                      config$logger$INFO("Overwriting entity bounding box with DB spatial table bounding box")
                      if(!skipDynamicBbox) self$setSpatialBbox(data = sf.data)
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
+                     }
+                     
                    }else{
                      warnMsg <- sprintf("DB table '%s' is not spatialized. Dynamic metadata computation aborted!", datasource_name)
                      config$logger$WARN(warnMsg)
                    }
+                   
+                   data_object$setFeatures(sf.data)
                    
                  }else{
                    warnMsg <- sprintf("Cannot get results from DB table '%s'. Dynamic metadata computation aborted!", datasource_name)
@@ -1064,7 +1104,7 @@ geoflow_entity <- R6Class("geoflow_entity",
                    if(!is.null(data_object$cqlfilter)){
                      sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                    }
-                   data_object$setFeatures(sf.data)
+                   
                    if(is(sf.data, "sf")){
                      #dynamic srid
                      epsgcode = get_epsg_code(sf.data)
@@ -1074,16 +1114,23 @@ geoflow_entity <- R6Class("geoflow_entity",
                      sf.crs = sf::st_crs(sf.data)
                      if(is.na(sf.crs)){
                        #in case data features are not geo-referenced we check availability of self$srid and apply it to data features
-                       if(!is.null(self$srid)) sf::st_crs(data_object$features) <- self$srid 
+                       if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
                      }
                      
                      #dynamic spatial extent
                      config$logger$INFO("Overwriting entity bounding box with DB spatial view bounding box")
                      if(!skipDynamicBbox) self$setSpatialBbox(data = sf.data)
+                     
+                     #compute surface
+                     if(computeSurface){
+                       sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
+                     }
                    }else{
                      warnMsg <- sprintf("DB view '%s' is not spatialized. Dynamic metadata computation aborted!", datasource_name)
                      config$logger$WARN(warnMsg)
                    }
+                   
+                   data_object$setFeatures(sf.data)
                    
                  }else{
                    warnMsg <- sprintf("Cannot get results from DB view '%s'. Dynamic metadata computation aborted!", datasource_name)
@@ -1129,7 +1176,7 @@ geoflow_entity <- R6Class("geoflow_entity",
                     if(!is.null(data_object$cqlfilter)){
                       sf.data <- filter_sf_by_cqlfilter(sf.data, data_object$cqlfilter)
                     }
-                    data_object$setFeatures(sf.data)
+      
                     if(is(sf.data, "sf")){
                       #dynamic srid
                       epsgcode = get_epsg_code(sf.data)
@@ -1154,10 +1201,18 @@ geoflow_entity <- R6Class("geoflow_entity",
                       geomField <- colnames(sf.data)[sapply(colnames(sf.data), function(x){(is(sf.data[[x]],"sfc"))})][1]
                       config$logger$INFO("Setting entity geometry field '%s'",geomField)
                       data_object$setGeometryField(geomField)
+                      
+                      #compute surface
+                      if(computeSurface){
+                        sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
+                      }
+                      
                     }else{
                       warnMsg <- sprintf("Result of SQL query file '%s' is not spatialized. Dynamic metadata computation aborted!", datasource_file)
                       config$logger$WARN(warnMsg)
                     }
+                    
+                    data_object$setFeatures(sf.data)
                     
                   }else{
                     warnMsg <- sprintf("Cannot get results from SQL query file '%s'. Dynamic metadata computation aborted!", datasource_file)
@@ -1209,7 +1264,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           
         })
         
-        if(is.null(self$data$dir)){
+        if(length(self$data$getData())==0){
           self$data <- data_objects[[1]]
         }else{
           self$data$data <- data_objects
@@ -1257,7 +1312,7 @@ geoflow_entity <- R6Class("geoflow_entity",
     #'@param config geoflow config object
     enrichSpatialCoverageFromDB = function(config){
       data_objects <- list()
-      if(is.null(self$data$dir)){
+      if(length(self$data$getData())==0){
         data_objects <- list(self$data)
       }else{
         data_objects <- self$data$getData()
@@ -1447,7 +1502,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           
         })
         
-        if(is.null(self$data$dir)){
+        if(length(self$data$getData())==0){
           self$data <- data_objects[[1]]
         }else{
           self$data$data <- data_objects
@@ -1495,7 +1550,7 @@ geoflow_entity <- R6Class("geoflow_entity",
       types_with_file<-c("csv","shp","gpkg","parquet")
       
       data_objects <- list()
-      if(is.null(self$data$dir)){
+      if(length(self$data$getData())==0){
         data_objects <- list(self$data)
       }else{
         data_objects <- self$data$getData()
@@ -1536,7 +1591,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           return(data_object)
         })
         
-        if(is.null(self$data$dir)){
+        if(length(self$data$getData())==0){
           self$data <- data_objects[[1]]
         }else{
           self$data$data <- data_objects
@@ -1582,6 +1637,11 @@ geoflow_entity <- R6Class("geoflow_entity",
     #'@param config geoflow config object
     enrichWithRelations = function(config){
       
+      #check for geoflow auto-set relations, if any we remove them to avoid duplicating auto-set relations
+      if(any(sapply(self$relations, function(x){x$prov == "geoflow"}))){
+        self$relations = self$relations[sapply(self$relations, function(x){x$prov != "geoflow"})]
+      }
+      
       geosapi_action <- NULL
       actions <- list()
       if(length(config$actions)>0) actions <- config$actions[sapply(config$actions, function(x){regexpr("geosapi",x$id)>0})]
@@ -1590,7 +1650,7 @@ geoflow_entity <- R6Class("geoflow_entity",
       if(!is.null(geosapi_action)) if(geosapi_action$getOption("enrich_with_relations")) if(!is.null(self$data)){
         
         data_objects <- list()
-        if(is.null(self$data$dir)){
+        if(length(self$data$getData())==0){
           data_objects <- list(self$data)
         }else{
           data_objects <- self$data$getData()
@@ -1612,6 +1672,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           if(geosapi_action$getOption("enrich_with_relation_wms_thumbnail")){
             config$logger$INFO("Enrich entity with OGC WMS thumbnail for layer = '%s'", layername)
             new_thumbnail <- geoflow_relation$new()
+            new_thumbnail$setProv("geoflow")
             new_thumbnail$setKey("thumbnail")
             new_thumbnail$setName(layername)
             map_overview = set_i18n(term_key = "graphic_overview", expr = "{{layername}} - {{term}}", layername = layername)
@@ -1638,6 +1699,7 @@ geoflow_entity <- R6Class("geoflow_entity",
           if(geosapi_action$getOption("enrich_with_relation_wms")){
             config$logger$INFO("Enrich entity with OGC WMS base URL for layer = '%s'", layername)
             new_wms <- geoflow_relation$new()
+            new_wms$setProv("geoflow")
             new_wms$setKey("wms")
             new_wms$setName(layername)
             new_wms$setDescription(
@@ -1662,6 +1724,7 @@ geoflow_entity <- R6Class("geoflow_entity",
             if(geosapi_action$getOption("enrich_with_relation_wfs")){
               config$logger$INFO("Enrich entity with OGC WFS base URL for layer = '%s'", layername)
               new_wfs <- geoflow_relation$new()
+              new_wfs$setProv("geoflow")
               new_wfs$setKey("wfs")
               new_wfs$setName(layername)
               new_wfs$setDescription(
@@ -1684,6 +1747,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               config$logger$INFO("Enrich entity with OGC WFS download links for layer = '%s'", layername)
               #wfs (GML)
               new_wfs_gml <- geoflow_relation$new()
+              new_wfs_gml$setProv("geoflow")
               new_wfs_gml$setKey("download")
               new_wfs_gml$setName(layername)
               new_wfs_gml$setDescription(
@@ -1702,6 +1766,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               self$addRelation(new_wfs_gml)
               #wfs (GeoJSON)
               new_wfs_geojson <- geoflow_relation$new()
+              new_wfs_geojson$setProv("geoflow")
               new_wfs_geojson$setKey("download")
               new_wfs_geojson$setName(layername)
               new_wfs_geojson$setDescription(
@@ -1720,6 +1785,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               self$addRelation(new_wfs_geojson)
               #wfs (ESRI Shapefile)
               new_wfs_shp <- geoflow_relation$new()
+              new_wfs_shp$setProv("geoflow")
               new_wfs_shp$setKey("download")
               new_wfs_shp$setName(layername)
               new_wfs_shp$setDescription(
@@ -1738,6 +1804,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               self$addRelation(new_wfs_shp)
               #CSV
               new_wfs_csv <- geoflow_relation$new()
+              new_wfs_csv$setProv("geoflow")
               new_wfs_csv$setKey("download")
               new_wfs_csv$setName(layername)
               new_wfs_csv$setDescription(
@@ -1764,6 +1831,7 @@ geoflow_entity <- R6Class("geoflow_entity",
             if(geosapi_action$getOption("enrich_with_relation_wcs")){
               config$logger$INFO("Enrich entity with OGC WCS base URL for layer = '%s'", layername)
               new_wcs <- geoflow_relation$new()
+              new_wcs$setProv("geoflow")
               new_wcs$setKey("wcs")
               new_wcs$setName(layername)
               new_wcs$setDescription(
@@ -1787,6 +1855,7 @@ geoflow_entity <- R6Class("geoflow_entity",
               config$logger$INFO("Enrich entity with OGC WCS download links for layer = '%s'", layername)
               #wcs (image/geotiff)
               new_wcs_geotiff <- geoflow_relation$new()
+              new_wcs_geotiff$setProv("geoflow")
               new_wcs_geotiff$setKey("download")
               new_wcs_geotiff$setName(layername)
               new_wcs_geotiff$setDescription(
@@ -1828,6 +1897,7 @@ geoflow_entity <- R6Class("geoflow_entity",
         geonetwork_base_url = config$software$output$geonetwork_config$parameters$url
         #xml metadata url
         metadata_url <- geoflow_relation$new()
+        metadata_url$setProv("geoflow")
         metadata_url$setKey("http")
         metadata_url$setName("ISO 19115 metadata (CSW GetRecordById)")
         csw_record_url = paste0(
@@ -1841,6 +1911,7 @@ geoflow_entity <- R6Class("geoflow_entity",
         
         #html metadata url
         metadata_url_2 = geoflow_relation$new()
+        metadata_url_2$setProv("geoflow")
         metadata_url_2$setKey("http")
         metadata_url_2$setName("ISO 19115 metadata (HTML)")
         html_record_url = paste0(geonetwork_base_url, "/srv/api/records/", mdId)
@@ -1856,6 +1927,7 @@ geoflow_entity <- R6Class("geoflow_entity",
         csw_base_url = config$software$output$csw_config$parameters$url
         #xml metadata url
         metadata_url <- geoflow_relation$new()
+        metadata_url$setProv("geoflow")
         metadata_url$setKey("http")
         metadata_url$setName("ISO 19115 metadata (CSW GetRecordById)")
         csw_record_url = paste0(
@@ -1872,6 +1944,7 @@ geoflow_entity <- R6Class("geoflow_entity",
         if(regexpr("geonetwork", csw_base_url)>0){
           geonetwork_base_url = unlist(strsplit(csw_base_url, "/srv"))[1]
           metadata_url_2 = geoflow_relation$new()
+          metadata_url_2$setProv("geoflow")
           metadata_url_2$setKey("http")
           metadata_url_2$setName("ISO 19115 metadata (HTML)")
           html_record_url = paste0(geonetwork_base_url, "/srv/api/records/", mdId)
@@ -2357,6 +2430,9 @@ geoflow_entity <- R6Class("geoflow_entity",
               }
             }
             outdata <- paste0(outdata, "source:", paste0(out_sources, collapse=","), line_separator)
+          }
+          if(!is.null(self$data$sourceFid)){
+            outdata <- paste0(outdata, "sourceFid:", paste0(self$data$sourceFid, collapse = ","), line_separator)
           }
           if(!is.null(self$data$sourceType)) outdata <- paste0(outdata, "sourceType:", self$data$sourceType, line_separator)
           #deprecate sourceZip/sourceZipOnly with #344

@@ -25,15 +25,17 @@ function(action, entity, config){
   include_object_identification_ids = action$getOption("include_object_identification_ids")
   
   #check inspire metadata validator configuration
-  INSPIRE_VALIDATOR <- NULL
-  if(inspire){
-    INSPIRE_VALIDATOR <- config$software$output$inspire
-    if(is.null(INSPIRE_VALIDATOR)){
-      errMsg <- "This action requires a INSPIRE metadata validator software to be declared in the configuration"
-      config$logger$ERROR(errMsg)
-      stop(errMsg)
-    }
-  }
+  #as of 2025-05-02, there is no need anymore to have an API key to validate metadata
+  #therefore the INSPIRE metadata validator software declaration is not needed
+  # INSPIRE_VALIDATOR <- NULL
+  # if(inspire){
+  #   INSPIRE_VALIDATOR <- config$software$output$inspire
+  #   if(is.null(INSPIRE_VALIDATOR)){
+  #     errMsg <- "This action requires a INSPIRE metadata validator software to be declared in the configuration"
+  #     config$logger$ERROR(errMsg)
+  #     stop(errMsg)
+  #   }
+  # }
   
   createResponsibleParty = function(x, role = NULL, roleId = NULL){
     if(is.null(role)) role <- x$role 
@@ -87,7 +89,7 @@ function(action, entity, config){
     
     if(include_object_identification_ids){
       rp_id = paste(roleId, tolower(x$email), sep = "_")
-      rp$setAttr("id", create_object_identification_id("party", rp_id))
+      rp$setAttr("id", geoflow::create_object_identification_id("party", rp_id))
     }
     return(rp)
   }
@@ -362,7 +364,7 @@ function(action, entity, config){
         fileDescription = thumbnail$description
       )
       thumbnail_id = paste(tolower(entity$identifiers[["id"]]), "thumbnail", tolower(thumbnail$link),sep="_")
-      if(include_object_identification_ids) go$setAttr("id", create_object_identification_id("browsegraphic", thumbnail_id))
+      if(include_object_identification_ids) go$setAttr("id", geoflow::create_object_identification_id("browsegraphic", thumbnail_id))
       ident$addGraphicOverview(go)
     }
   }
@@ -416,7 +418,7 @@ function(action, entity, config){
       legal_constraints$addUseConstraint("license")
       for(license in licenses){
         for(value in license$values){
-          license_info = zen4R::ZenodoManager$new()$getLicenseById(value)
+          license_info = zen4R::ZenodoManager$new()$getLicenseById(URLencode(value))
           if(!is.null(license_info)){
             value = ISOAnchor$new(name = license_info$title[[1]], href = license_info$props$url)
             legal_constraints$useLimitation = c(legal_constraints$useLimitation, value)
@@ -845,7 +847,7 @@ function(action, entity, config){
     doi_desc = set_i18n(term_key = "doi")
     doi_or$setDescription(doi_desc, locales = geoflow::get_locales_from(doi_desc))
     doi_or$setProtocol("WWW:LINK-1.0-http--link")
-    if(include_object_identification_ids) doi_or$setAttr("id", create_object_identification_id("onlineresource", the_doi))
+    if(include_object_identification_ids) doi_or$setAttr("id", geoflow::create_object_identification_id("onlineresource", the_doi))
     dto$addOnlineResource(doi_or)
   }
   
@@ -911,7 +913,7 @@ function(action, entity, config){
       
       if(include_object_identification_ids) if(any(sapply(c("wms", "wfs", "wcs","download"), function(x){startsWith(http_relation$key, x)}))) {
         resource_id = paste(tolower(entity$identifiers[["id"]]), http_relation$key, if(!is.null(mimeType)) mimeType else "", tolower(http_relation$name),sep="_")
-        or$setAttr("id", create_object_identification_id("onlineresource", resource_id))
+        or$setAttr("id", geoflow::create_object_identification_id("onlineresource", resource_id))
       }
       
       dto$onLine = c(dto$onLine,or)
@@ -1005,7 +1007,7 @@ function(action, entity, config){
   #we save the metadata
   #saveRDS(md, file.path(getwd(), "metadata", paste0(entity$identifiers[["id"]], ".rds")))
   md$save(file.path(getwd(), "metadata", paste0(entity$getEntityJobDirname(), "_ISO-19115.xml")), 
-          inspire = inspire, inspireValidator = INSPIRE_VALIDATOR)
+          inspire = inspire)
   rm(md)
 
 }

@@ -8,6 +8,15 @@ function(action, entity, config){
   options <- action$options
   createWorkspace <- action$getOption("createWorkspace")
   createStore <- action$getOption("createStore")
+  store_basepath <- action$getOption("store_basepath")
+  store_basepath_match = attr(regexpr("^/+", store_basepath), "match.length")
+  if(store_basepath_match > 0){
+    if(store_basepath_match<3){
+      store_basepath = paste0(paste0(rep("/",3-store_basepath_match),collapse=""), store_basepath)
+    }else{
+      store_basepath = paste0("///", substr(store_basepath, start = max(store_basepath_match)+1, nchar(store_basepath)))
+    }
+  }
   store_description <- action$getOption("store_description")
   overwrite <- action$getOption("overwrite")
   overwrite_upload <- action$getOption("overwrite_upload")
@@ -26,7 +35,7 @@ function(action, entity, config){
   }
   
   data_objects <- list()
-  if(is.null(entity$data$dir)){
+  if(length(entity$data$getData())==0){
     data_objects <- list(entity$data)
   }else{
     data_objects <- entity$data$getData()
@@ -103,7 +112,7 @@ function(action, entity, config){
                    name = store, 
                    description = store_description , 
                    enabled = TRUE, 
-                   database = paste0("file:data/",workspace,"/",datasource_name,".gpkg")
+                   database = paste0("file:",store_basepath,"/",workspace,"/",datasource_name,".gpkg")
                  )
                },
                #vector/dbtable
@@ -161,7 +170,7 @@ function(action, entity, config){
                    name=store, 
                    description = store_description,
                    enabled = TRUE,
-                   url = paste0("file:data","/",workspace)
+                   url = paste0("file:",store_basepath,"/",workspace)
                  )
                },
                #grid/coverages upload types

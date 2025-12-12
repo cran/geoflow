@@ -1,6 +1,6 @@
 Package: geoflow
-Version: 1.0.0
-Date: 2025-10-08
+Version: 1.1.0
+Date: 2025-12-12
 Title: Orchestrate Geospatial (Meta)Data Management Workflows and
         Manage FAIR Services
 Description: An engine to facilitate the orchestration and execution of metadata-driven data management workflows, in compliance with 'FAIR' 
@@ -32,9 +32,9 @@ Authors@R: c(
 Maintainer: Emmanuel Blondel <emmanuel.blondel1@gmail.com>
 Depends: R (>= 3.3)
 Imports: R6, methods, dotenv, benchmarkme, httr, mime, jsonlite, yaml,
-        XML, xml2, rdflib, curl, whisker, mime, digest, dplyr, readr,
-        arrow, zip, png, uuid, sf, sfarrow, terra, geometa (>= 0.9),
-        geosapi, geonapi, geonode4R, ows4R
+        XML, xml2, rdflib, curl, whisker, digest, dplyr, readr, arrow,
+        zip, png, uuid, sf, sfarrow, terra, geometa (>= 0.9), geosapi,
+        geonapi, geonode4R, ows4R
 Suggests: testthat, readxl, gsheet, googledrive, DBI, rapiclient,
         RMariaDB, RPostgres, RPostgreSQL, RSQLite, ncdf4, thredds, EML,
         emld, datapack, dataone, rgbif, ocs4R, zen4R, atom4R,
@@ -45,7 +45,7 @@ BugReports: https://github.com/r-geoflow/geoflow/issues
 LazyLoad: yes
 RoxygenNote: 7.3.3
 NeedsCompilation: no
-Packaged: 2025-10-08 20:09:51 UTC; emman
+Packaged: 2025-12-12 14:59:44 UTC; emman
 Author: Emmanuel Blondel [aut, cre, cph] (ORCID:
     <https://orcid.org/0000-0002-5870-5762>),
   Julien, Barde [aut] (ORCID: <https://orcid.org/0000-0002-3519-6141>),
@@ -58,4 +58,4 @@ Author: Emmanuel Blondel [aut, cre, cph] (ORCID:
   Yvan Le Bras [ctb],
   Jeroen Ooms [ctb]
 Repository: CRAN
-Date/Publication: 2025-10-09 08:50:09 UTC
+Date/Publication: 2025-12-12 16:00:11 UTC

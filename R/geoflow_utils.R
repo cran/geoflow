@@ -584,23 +584,25 @@ dotenv_parse_dot_line <- function (line) {
 #' @author Emmanuel Blondel, \email{emmanuel.blondel1@@gmail.com}
 #' @export
 unload_workflow_environment <- function(config){
-  env_vars_workflow <- as.list(Sys.getenv())
-  envfile <- config$profile_config$environment$file
-  if(!is.null(envfile)){
-    tmp <- readLines(envfile)
-    tmp <- dotenv_ignore_comments(tmp)
-    tmp <- dotenv_ignore_empty_lines(tmp)
-    if (length(tmp) > 0){
-      tmp <- lapply(tmp, dotenv_parse_dot_line)
-      tmp <- structure(.Data = lapply(tmp, "[[", "value"), .Names = sapply(tmp, "[[", "key"))
-      
-      #remove env vars based on .env file
-      Sys.unsetenv(names(tmp))
-      
-      #reset env vars previously in session env
-      env_vars_before <- config$session_env
-      env_vars_to_reset <- setdiff(env_vars_before, env_vars_workflow)
-      if(length(env_vars_to_reset)>0) do.call(Sys.setenv, env_vars_to_reset)
+  if(!is.null(config$profile_config$environment$file)){
+    env_vars_workflow <- as.list(Sys.getenv())
+    envfile <- get_absolute_path(config$profile_config$environment$file, base = config$wd)
+    if(!is.null(envfile)){
+      tmp <- readLines(envfile)
+      tmp <- dotenv_ignore_comments(tmp)
+      tmp <- dotenv_ignore_empty_lines(tmp)
+      if (length(tmp) > 0){
+        tmp <- lapply(tmp, dotenv_parse_dot_line)
+        tmp <- structure(.Data = lapply(tmp, "[[", "value"), .Names = sapply(tmp, "[[", "key"))
+        
+        #remove env vars based on .env file
+        Sys.unsetenv(names(tmp))
+        
+        #reset env vars previously in session env
+        env_vars_before <- config$session_env
+        env_vars_to_reset <- setdiff(env_vars_before, env_vars_workflow)
+        if(length(env_vars_to_reset)>0) do.call(Sys.setenv, env_vars_to_reset)
+      }
     }
   }
 }
@@ -620,6 +622,32 @@ unload_workflow_environment <- function(config){
 
 is_absolute_path <- function(path) {
   grepl("^(/|[A-Za-z]:|\\\\|~)", path)
+}
+
+#' @name get_absolute_path
+#' @aliases get_absolute_path
+#' @title get_absolute_path
+#' @description \code{get_absolute_path} allows to get the absolute path of a resource
+#' given a base directory
+#' 
+#' @usage get_absolute_path(path, base, mustWork, expand_tilde)
+#' 
+#' @param path a path in character string
+#' @param base a base direcotry
+#' @param mustWork must work?
+#' @param expand_tilde expand tilde?
+#' 
+#' @author Emmanuel Blondel, \email{emmanuel.blondel1@@gmail.com}
+#' @export
+get_absolute_path <- function(path, base = getwd(), mustWork = FALSE, expand_tilde = TRUE) {
+  path <- as.character(path)
+  base <- as.character(base)[1L]
+  if (expand_tilde) {
+    path <- ifelse(startsWith(path, "~"), path.expand(path), path)
+    base <- path.expand(base)
+  }
+  combined <- ifelse(is_absolute_path(path), path, file.path(base, path))
+  normalizePath(combined, winslash = "/", mustWork = mustWork)
 }
 
 #'@name get_union_bbox
