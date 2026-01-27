@@ -3,7 +3,7 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Build Status](https://github.com/r-geoflow/geoflow/actions/workflows/r-cmd-check.yml/badge.svg?branch=master)](https://github.com/r-geoflow/geoflow/actions/workflows/r-cmd-check.yml)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/geoflow)](https://cran.r-project.org/package=geoflow)
-[![Github_Status_Badge](https://img.shields.io/badge/Github-1.1.0-blue.svg)](https://github.com/r-geoflow/geoflow)
+[![Github_Status_Badge](https://img.shields.io/badge/Github-1.2.0-blue.svg)](https://github.com/r-geoflow/geoflow)
 [![DOI](https://zenodo.org/badge/DOI//10.5281/zenodo.3138920.svg)](https://doi.org//10.5281/zenodo.3138920)
 
 **Orchestrate Geospatial (Meta)Data Management Workflows and Manage FAIR Services**
@@ -38,8 +38,8 @@ Many thanks to the following organizations that have provided fundings for stren
 </div>
 <br>
 <div style="float:left;">
-  <a href="http://www.cnrs.fr"><img src="http://www.cnrs.fr/themes/custom/cnrs/logo.svg" height=100 width=100/></a>
-  <a href="https://inee.cnrs.fr/fr/zones-ateliers"><img src="https://inee.cnrs.fr/sites/institut_inee/files/inline-images/logo-za_0_0.jpg" height=100 width=200/></a>
+  <a href="https://www.cnrs.fr/fr"><img src="https://www.cnrs.fr/themes/custom/cnrs/logo.svg" height=100 width=100/></a>
+  <a href="https://inee.cnrs.fr/fr/zones-ateliers"><img src="https://www.za-inee.org/sites/all/themes/mnhn/logo.png" height=100 width=200/></a>
   <a href="https://letg.cnrs.fr"><img height=100 width=50 src="https://letg.cnrs.fr/wp-content/uploads/2023/05/logo_letg.png"></a>
 </div>
 

@@ -1,3 +1,12 @@
+## [geoflow 1.2.0](https://github.com/r-geoflow/geoflow) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://github.com/r-geoflow/geoflow)
+
+**New features**
+
+* [#434](https://github.com/r-geoflow/geoflow/issues/434) Support publication of restricted OGC data layers
+
+**Enhancements**
+
+* [#435](https://github.com/r-geoflow/geoflow/issues/435) Add vocabulary connection status - Online vocabulary resources should fail gracefully
 
 ## [geoflow 1.1.0](https://github.com/r-geoflow/geoflow) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://github.com/r-geoflow/geoflow)
 

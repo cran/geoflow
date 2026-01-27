@@ -84,6 +84,13 @@ function(action, entity, config){
              }
              GN$insertRecord(geometa = md, group = group, category = category,
                              uuidProcessing = "OVERWRITE", geometa_inspire = inspire, geometa_inspireValidator = INSPIRE_VALIDATOR)
+             #config privileges
+             config <- GNPrivConfiguration$new()
+             config$setPrivileges(as.character(group), privs)
+             if(entity$data$restricted){
+               config$setPrivileges("all", c("view"))
+             }
+             GN$setPrivConfiguration(id = md$fileIdentifier, config = config)
            },
            "GNLegacyAPIManager" = {
              if(category_match_col=="id"){
@@ -153,7 +160,7 @@ function(action, entity, config){
         })]
         #manage absolute paths
         if(length(entity_thumbnails)>0) entity_thumbnails <- lapply(entity_thumbnails, function(rel){
-          if(!is_absolute_path(rel$link)) rel$link <- file.path(config$session_wd, rel$link)
+          if(!geoflow::is_absolute_path(rel$link)) rel$link <- file.path(config$session_wd, rel$link)
           return(rel)
         })
         if(length(entity_thumbnails)>0) for(entity_thumbnail in entity_thumbnails){
