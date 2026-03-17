@@ -29,20 +29,33 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
     contact = geoflow_contact$new()
     if(!is.null(rp$contactInfo$address$electronicMailAddress)) if(!is.na(rp$contactInfo$address$electronicMailAddress)) contact$identifiers[["id"]] = rp$contactInfo$address$electronicMailAddress
     if(!is.null(rp$organisationName)) if(!is.na(rp$organisationName)) contact$setOrganizationName(rp$organisationName)
-    if(!is.null(rp$positionName)) if(!is.na(rp$positionName)) contact$setPositionName(rp$positionName)
     ind = rp$individualName
     if(!is.null(ind)) if(!is.na(ind)){
       ind_parts = unlist(strsplit(ind, " "))
       contact$setFirstName(ind_parts[1])
       contact$setLastName(ind_parts[2])
     }
+    
+    #we do a digest on contact to identify it, based on names, email eventually
+    contact$setIdentifier(key = "digest", digest::digest(contact))
+    
+    if(!is.null(rp$positionName)) if(!is.na(rp$positionName)) contact$setPositionName(rp$positionName)
+    
     if(length(rp$contactInfo$address)>0){
       address = rp$contactInfo$address[[1]]
-      if(length(address$deliveryPoint)>0) if(!is.na(address$deliveryPoint)) contact$setPostalAddress(address$deliveryPoint)
+      if(length(address$deliveryPoint)>0) if(!is.na(address$deliveryPoint)){
+        deliveryPoint = address$deliveryPoint
+        if(is.list(deliveryPoint)) deliveryPoint = deliveryPoint[[1]]
+        contact$setPostalAddress(deliveryPoint)
+      }
       if(!is.null(address$postalCode)) if(!is.na(address$postalCode)) contact$setPostalCode(address$postalCode)
       if(!is.null(address$city)) if(!is.na(address$city)) contact$setCity(address$city)
       if(!is.null(address$country)) if(!is.na(address$country)) contact$setCountry(address$country)
-      if(length(address$electronicMailAddress)>0) if(!is.na(address$electronicMailAddress)) contact$setEmail(address$electronicMailAddress)
+      if(length(address$electronicMailAddress)>0) if(!is.na(address$electronicMailAddress)) {
+        email = address$electronicMailAddress
+        if(is.list(email)) email = email[[1]]
+        contact$setEmail(email)
+      }
     }
     if(length(rp$contactInfo$phone)>0){
       phone = rp$contactInfo$phone[[1]]
@@ -167,7 +180,7 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
         }
       }
       editionDates = rec$identificationInfo[[1]]$citation$editionDate
-      if(length(editionDates)>0) for(editionDate in editionDates){
+      if(length(editionDates)>0) for(editionDate in as.Date(editionDates)){
         if(is(editionDate,"numeric")) editionDate = as.Date(editionDate, origin = "1970-01-01")
         entity$addDate("edition", editionDate)
       }
@@ -209,8 +222,12 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
       entity$subjects = lapply(rec$identificationInfo[[1]]$descriptiveKeywords, function(dk){
         subject = geoflow_subject$new()
         subj_key = dk$type$attrs$codeListValue
-        if(subj_key == "") subj_key = "theme"        
-        subject$setKey(subj_key)
+        if(!is.null(subj_key)){
+          if(subj_key == "") subj_key = "theme"
+          subject$setKey(subj_key)
+        }else{
+          subject$setKey("theme")
+        }
         title = dk$thesaurusName$title
         if(!is.null(title)){
           if(is(title, "ISOAnchor")){
@@ -477,7 +494,11 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
         }
       }
     }
-    entity$setData(g_data)
+    if(!is.null(g_data$source)) entity$setData(g_data)
+    
+    #remove contacts without any role
+    if(length(entity$contacts)>0) entity$contacts = entity$contacts[sapply(entity$contacts, function(x){!is.null(x$role)})]
+    
     return(entity)
   })
   

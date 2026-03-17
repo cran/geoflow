@@ -920,6 +920,33 @@ geoflow_entity <- R6Class("geoflow_entity",
                        if(!is.null(self$srid)) sf::st_crs(sf.data) <- self$srid 
                      }
                      
+                     #geom data quality checks
+                     if(any(sf::st_is_empty(sf.data)) | any(!sf::st_is_valid(sf.data))){
+                       tbl.spec <- readr::spec_csv(trgCsv)
+                       tbl.spec[1]$cols = sapply(tbl.spec[1]$cols, function(x){spec = x;if(is(x, "collector_logical")){spec = readr::col_character()}; return(spec)})
+                       tbl.data <- as.data.frame(readr::read_csv(trgCsv, col_types = tbl.spec))
+                       
+                       data_issues = NULL
+                       if(any(sf::st_is_empty(sf.data))){
+                         empty.sf.data = tbl.data[sf::st_is_empty(sf.data),]
+                         empty.sf.data$geometry_issue = "empty"
+                         data_issues = empty.sf.data
+                         config$logger$WARN(sprintf("CSV spatialization: %s empty geometries detected!", nrow(empty.sf.data)))
+                       }
+                       if(any(!sf::st_is_valid(sf.data))){
+                         invalid.sf.data = tbl.data[!sf::st_is_empty(sf.data) & !sf::st_is_valid(sf.data),]
+                         invalid.sf.data$geometry_issue = "invalid"
+                         data_issues = rbind(data_issues, invalid.sf.data)
+                         config$logger$WARN(sprintf("CSV spatialization: %s invalid geometries detected!", nrow(invalid.sf.data)))
+                       }
+                       if(!is.null(data_issues)){
+                         readr::write_csv(data_issues, file.path(self$getEntityJobDirPath(config, jobdir), "data", paste0(unlist(strsplit(basename(trgCsv),".csv"))[1], "__geometry_issues.csv")))
+                         config$logger$WARN(sprintf("CSV spatialization: %s geometry issues detected!", nrow(data_issues)))
+                         config$logger$WARN("Removing data with geometry issues!")
+                         sf.data = sf.data[!sf::st_is_empty(sf.data) & sf::st_is_valid(sf.data),]
+                       }
+                     }
+                     
                      #compute surface
                      if(computeSurface){
                        sf.data[[computeSurfaceField]] = as.numeric(sf::st_area(sf::st_transform(sf.data, computeSurfaceCrs)))
@@ -2347,12 +2374,12 @@ geoflow_entity <- R6Class("geoflow_entity",
         #Contact
         Creator = paste0(sapply(unique(sapply(self$contacts, function(contact){contact$role})),function(role){
           role_contacts <- self$contacts[sapply(self$contacts, function(x){x$role == role})]
-          outrole <- paste(role, paste0(sapply(role_contacts, function(role_c){return(role_c$identifiers[["id"]])}),collapse=","), sep=":")
+          outrole <- paste(role, paste0(sapply(role_contacts, function(role_c){return(role_c$identifiers[[1]])}),collapse=","), sep=":")
           return(outrole)
         }),collapse=line_separator),
         #Date
         Date = paste0(sapply(self$dates,function(x){
-          outdate <- paste(x$key, x$value,sep=":")
+          outdate <- paste(x$key, as.Date(x$value),sep=":")
           return(outdate)
         }),collapse=line_separator),
         #Type
@@ -2404,7 +2431,8 @@ geoflow_entity <- R6Class("geoflow_entity",
         #Rights
         Rights = paste0(sapply(self$rights, function(right){
           value <- right$values[[1]]
-          if(!endsWith(right$key, "Constraint")) value <- paste0("\"", value,"\"")
+          if(!endsWith(tolower(right$key), "constraint")) value <- paste0("\"", value,"\"")
+          if(tolower(right$key) == "otherconstraint") value <- paste0("\"", value,"\"")
           outright <- paste0(right$key, ":", value)
           return(outright)
         }),collapse = line_separator),
@@ -2412,23 +2440,27 @@ geoflow_entity <- R6Class("geoflow_entity",
         Provenance = {
           outprov <- NA
           if(!is.null(self$provenance)){
-            outprov <- paste0("statement:", paste0("\"",self$provenance$statement,"\""))
-            if(length(self$provenance$processes)>0){
-              outprov <- paste0(outprov, line_separator)
-              processes_str <- paste0(sapply(self$provenance$processes, function(process){
-                rationale <- paste0("\"", process$rationale, "\"")
-                outproc <- paste0("process:", rationale)
-                if(!is.null(process$description)){
-                  description <- paste0("\"", process$description, "\"")
-                  outproc <- paste0(outproc, "[", description, "]")
-                }
-                return(outproc)
-              }),collapse=line_separator)
-              outprov <- paste0(outprov, processes_str)
-              #processors_str <- paste0("processor:",paste0(sapply(self$provenance$processes, function(process){
-              #  return(process$processor$id)
-              #}),collapse=","))
-              #outprov <- paste0(outprov, processors_str)
+            if(is.null(self$provenance$statement)){
+              outprov <- ""
+            }else{
+              outprov <- if(is.na(self$provenance$statement)) "" else paste0("statement:", paste0("\"",self$provenance$statement,"\""))
+              if(length(self$provenance$processes)>0){
+                outprov <- paste0(outprov, line_separator)
+                processes_str <- paste0(sapply(self$provenance$processes, function(process){
+                  rationale <- paste0("\"", process$rationale, "\"")
+                  outproc <- paste0("process:", rationale)
+                  if(!is.null(process$description)){
+                    description <- paste0("\"", process$description, "\"")
+                    outproc <- paste0(outproc, "[", description, "]")
+                  }
+                  return(outproc)
+                }),collapse=line_separator)
+                outprov <- paste0(outprov, processes_str)
+                #processors_str <- paste0("processor:",paste0(sapply(self$provenance$processes, function(process){
+                #  return(process$processor$id)
+                #}),collapse=","))
+                #outprov <- paste0(outprov, processors_str)
+              }
             }
           }
           outprov
