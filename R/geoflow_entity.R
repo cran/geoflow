@@ -2392,7 +2392,7 @@ geoflow_entity <- R6Class("geoflow_entity",
         #SpatialCoverage
         SpatialCoverage = {
           outsp <- ""
-          if(!is.null(self$spatial_extent)){
+          if(!is.null(self$spatial_bbox)){
             bbox = self$spatial_bbox
             outsp <- paste(sprintf("SRID=%s",self$srid), sf::st_as_text(bbox_to_sf(bbox$xmin, bbox$ymin, bbox$xmax, bbox$ymax, crs = 4326)$geom),sep=";")
           }else{
@@ -2471,12 +2471,12 @@ geoflow_entity <- R6Class("geoflow_entity",
           
           outdata <- ""
           
-          if(!is.null(self$data$dir)){
-            outdata <- paste0("dir:", self$data$dir, line_separator)
-          }
-          
           if(!is.null(self$data$access)){
             outdata <- paste0("access:", self$data$access, line_separator)
+          }
+          
+          if(!is.null(self$data$dir)){
+            outdata <- paste0(outdata, "dir:", self$data$dir, line_separator)
           }
           
           if(!is.null(self$data$source)){
@@ -2496,6 +2496,7 @@ geoflow_entity <- R6Class("geoflow_entity",
             outdata <- paste0(outdata, "sourceFid:", paste0(self$data$sourceFid, collapse = ","), line_separator)
           }
           if(!is.null(self$data$sourceType)) outdata <- paste0(outdata, "sourceType:", self$data$sourceType, line_separator)
+          if(!is.null(self$data$sourceSql)) outdata <- paste0(outdata, "sourceSql:", self$data$sourceSql, line_separator)
           #deprecate sourceZip/sourceZipOnly with #344
           #if(!is.null(self$data$sourceZip)) outdata <- paste0(outdata, "sourceZip:", tolower(as.character(self$data$sourceZip)), line_separator)
           #if(!is.null(self$data$sourceZipOnly)) outdata <- paste0(outdata, "sourceZipOnly:", tolower(as.character(self$data$sourceZipOnly)), line_separator)
@@ -2513,7 +2514,9 @@ geoflow_entity <- R6Class("geoflow_entity",
             outdata <- paste0(outdata, "uploadType:", tolower(as.character(self$data$uploadType)), line_separator)
           }
           if(!is.null(self$data$upload)) outdata <- paste0(outdata, "upload:", tolower(as.character(self$data$upload)), line_separator)
-          
+          if(!is.null(self$data$spatialRepresentationType)){
+            outdata <- paste0(outdata, "spatialRepresentationType:", tolower(as.character(self$data$spatialRepresentationType)), line_separator)
+          }
           if(!is.null(self$data$featureType)){
             outdata <- paste0(outdata, "featureType:", tolower(as.character(self$data$featureType)), line_separator)
           }
@@ -2527,6 +2530,10 @@ geoflow_entity <- R6Class("geoflow_entity",
             out_styles <- paste0(self$data$styles, collapse=",")
             outdata <- paste0(outdata, "style:", out_styles, line_separator)
           }
+          
+          if(!is.null(self$data$geometryField) && !is.null(self$data$geometryType)){
+            outdata <- paste0(outdata, "geometry:", self$data$geometryField, ",", self$data$geometryType, line_separator)
+          }
           if(length(self$data$parameters)>0){
             out_params <- paste0(sapply(names(self$data$parameters), function(paramName){
               param <- self$data$parameters[[paramName]]
@@ -2535,9 +2542,7 @@ geoflow_entity <- R6Class("geoflow_entity",
             }),collapse=line_separator)
             outdata <- paste0(outdata, out_params,line_separator)
           }
-          if(!is.null(self$data$geometryField) && !is.null(self$data$geometryType)){
-            outdata <- paste0(outdata, "geometry:", self$data$geometryField, ",", self$data$geometryType, line_separator)
-          }
+          
           if(length(self$data$attributes)>0) {
             out_attrs <- paste0(sapply(self$data$attributes, function(attribute){
               uri <- attr(attribute, "uri")

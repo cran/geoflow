@@ -1,3 +1,15 @@
+## [geoflow 1.3.0](https://github.com/r-geoflow/geoflow) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://github.com/r-geoflow/geoflow)
+
+**Bug fixes**
+
+* [#443](https://github.com/r-geoflow/geoflow/issues/443) Missing sourceSql export in entity$asDataFrame
+* [#444](https://github.com/r-geoflow/geoflow/issues/444) Data dir is ignored with entity$asDataFrame
+* [#447](https://github.com/r-geoflow/geoflow/issues/447) Missing entity data spatialRepresentationType export as data frame
+
+**New features**
+
+* [#445](https://github.com/r-geoflow/geoflow/issues/445) Support specific software configuration for environment file remote fetching
+* [#446](https://github.com/r-geoflow/geoflow/issues/446) Support remote OCS fetching of dictionary register scripts
 
 ## [geoflow 1.2.1](https://github.com/r-geoflow/geoflow) | [![CRAN_Status_Badge](https://img.shields.io/badge/CRAN-published-blue.svg)](https://github.com/r-geoflow/geoflow)
 

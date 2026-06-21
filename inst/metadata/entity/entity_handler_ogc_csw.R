@@ -27,26 +27,33 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
   
   createContactFromResponsibleParty = function(rp){
     contact = geoflow_contact$new()
+    
+    digest_str = ""
     if(!is.null(rp$contactInfo$address$electronicMailAddress)) if(!is.na(rp$contactInfo$address$electronicMailAddress)) contact$identifiers[["id"]] = rp$contactInfo$address$electronicMailAddress
     if(!is.null(rp$organisationName)) if(!is.na(rp$organisationName)) contact$setOrganizationName(rp$organisationName)
     ind = rp$individualName
     if(!is.null(ind)) if(!is.na(ind)){
+      digest_str = tolower(ind)
       ind_parts = unlist(strsplit(ind, " "))
       contact$setFirstName(ind_parts[1])
       contact$setLastName(ind_parts[2])
+    }else{
+      if(!is.null(rp$organisationName)) if(!is.na(rp$organisationName)) digest_str = tolower(rp$organisationName) 
     }
     
     #we do a digest on contact to identify it, based on names, email eventually
-    contact$setIdentifier(key = "digest", digest::digest(contact))
+    contact$setIdentifier(key = "digest", digest::digest(digest_str))
     
     if(!is.null(rp$positionName)) if(!is.na(rp$positionName)) contact$setPositionName(rp$positionName)
     
     if(length(rp$contactInfo$address)>0){
       address = rp$contactInfo$address[[1]]
-      if(length(address$deliveryPoint)>0) if(!is.na(address$deliveryPoint)){
+      if(length(address$deliveryPoint)>0){
         deliveryPoint = address$deliveryPoint
         if(is.list(deliveryPoint)) deliveryPoint = deliveryPoint[[1]]
-        contact$setPostalAddress(deliveryPoint)
+        if(!is.na(deliveryPoint)){
+          contact$setPostalAddress(deliveryPoint)
+        }
       }
       if(!is.null(address$postalCode)) if(!is.na(address$postalCode)) contact$setPostalCode(address$postalCode)
       if(!is.null(address$city)) if(!is.na(address$city)) contact$setCity(address$city)
@@ -158,11 +165,13 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
       #graphic overviews
       gos = rec$identificationInfo[[1]]$graphicOverview
       for(go in gos){
-        thumbnail_rel = geoflow_relation$new()
-        thumbnail_rel$setKey("thumbnail")
-        thumbnail_rel$setName(go$fileDescription)
-        thumbnail_rel$setLink(go$fileName)
-        entity$addRelation(thumbnail_rel)
+        if(R6::is.R6(go)){
+          thumbnail_rel = geoflow_relation$new()
+          thumbnail_rel$setKey("thumbnail")
+          thumbnail_rel$setName(go$fileDescription)
+          thumbnail_rel$setLink(go$fileName)
+          entity$addRelation(thumbnail_rel)
+        }
       }
       
       #cited responsible party
@@ -238,7 +247,8 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
           }
         }
         kwds = dk$keyword
-        for(kwd in kwds){
+        kwds = kwds[!is.na(kwds)]
+        if(length(kwds)>0) for(kwd in kwds){
           gkwd = kwd
           if(is(kwd, "ISOAnchor")){
             gkwd = kwd$value
@@ -264,6 +274,8 @@ handle_entities_csw <- function(handler, source, config, handle = TRUE){
               ), 
               crs = sf::st_crs(4326)
             )
+            entity$spatial_bbox = entity$geo_bbox
+            entity$srid = 4326
           }
         }
         #temporal coverage
