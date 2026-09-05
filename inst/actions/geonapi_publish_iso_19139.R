@@ -87,8 +87,12 @@ function(action, entity, config){
              #config privileges
              config <- GNPrivConfiguration$new()
              config$setPrivileges(as.character(group), privs)
-             if(entity$data$restricted){
-               config$setPrivileges("all", c("view"))
+             if(!is.null(entity$data)){
+               if(entity$data$restricted){
+                 config$setPrivileges("all", c("view"))
+               }else{
+                 config$setPrivileges("all", privs)
+               }
              }else{
                config$setPrivileges("all", privs)
              }
@@ -106,8 +110,12 @@ function(action, entity, config){
                #config privileges
                config <- GNPrivConfiguration$new()
                config$setPrivileges(as.character(group), privs)
-               if(entity$data$restricted){
-                 config$setPrivileges("all", c("view"))
+               if(!is.null(entity$data)){
+                 if(entity$data$restricted){
+                   config$setPrivileges("all", c("view"))
+                 }else{
+                   config$setPrivileges("all", privs)
+                 }
                }else{
                  config$setPrivileges("all", privs)
                }
@@ -172,7 +180,7 @@ function(action, entity, config){
         })]
         #manage absolute paths
         if(length(entity_thumbnails)>0) entity_thumbnails <- lapply(entity_thumbnails, function(rel){
-          if(!geoflow::is_absolute_path(rel$link)) rel$link <- file.path(config$session_wd, rel$link)
+          if(!geoflow::is_absolute_path(rel$link)) rel$link <- get_absolute_path(rel$link, base = config$wd)
           return(rel)
         })
         if(length(entity_thumbnails)>0) for(entity_thumbnail in entity_thumbnails){

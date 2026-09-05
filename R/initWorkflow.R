@@ -3,10 +3,12 @@
 #' @title initWorkflow
 #' @description \code{initWorkflow} allows to init a workflow
 #'
-#' @usage initWorkflow(file, dir, jobDirPath, handleMetadata, session)
+#' @usage initWorkflow(file, dir, outdir, jobDirPath, handleMetadata, session)
 #'                 
 #' @param file a JSON or YAML configuration file
-#' @param dir a directory where to execute the workflow.
+#' @param dir a directory used to execute the workflow. This is the working directory, ie where local
+#' resources (data, metadata), should be located.
+#' @param outdir a directory where the geoflow will write the job outputs.
 #' @param jobDirPath a directory set-up for the job. Default is \code{NULL} means it will be created
 #'  during initialization of the workflow, otherwise the path provided will be used.
 #' @param handleMetadata Default is \code{TRUE}. Metadata contacts/entities/dictionary will be handled.
@@ -18,10 +20,13 @@
 #' @author Emmanuel Blondel, \email{emmanuel.blondel1@@gmail.com}
 #' @export
 #'
-initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, session = NULL){
+initWorkflow <- function(file, dir, outdir = dir, jobDirPath = NULL, handleMetadata = TRUE, session = NULL){
 
   wd <- getwd()
   on.exit(setwd(wd))
+  
+  dir = get_absolute_path(dir, base = dir)
+  outdir = get_absolute_path(outdir, base = dir)
   
   #optional shiny session object
   if(!is.null(session)) if(!is(session, "ShinySession")){
@@ -29,7 +34,7 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
   }
   
   #file/config
-  file <- tools::file_path_as_absolute(file)
+  file <- get_absolute_path(file, base = dir)
   config = NULL
   config_ext = NULL
   switch(
@@ -46,7 +51,7 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
   )
   
   #keep the source
-  config$src <- file
+  config$src <- get_absolute_path(file, base = dir)
   config$src_config <- config
   
   #worfklow config$loggers
@@ -66,9 +71,8 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
   
   config_file <- config$src
   #working dir (where jobs will be created)
-  config$root <- dirname(file)
   if(is.null(config$wd)) config$wd <- tools::file_path_as_absolute(dir)
-  if(is.null(jobDirPath)) jobDirPath <- initWorkflowJob(dir = dir)
+  if(is.null(jobDirPath)) jobDirPath <- initWorkflowJob(dir = outdir)
   config$job <- jobDirPath
   config$logger$INFO("Workflow job directory: %s", jobDirPath)
   
@@ -78,7 +82,7 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
   #rename copied file
   job_config_file = paste0("job.", config_ext)
   file.rename(from = file.path(getwd(), basename(config_file)), to = job_config_file)
-  setwd(wd)
+  setwd(dir)
   
   #profile
   profile <- NULL
@@ -139,7 +143,7 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
     if(!is.null(config$profile$environment)) if(!is.null(config$profile$environment$file)){
       config$logger$INFO("Loading environment from env file '%s'", basename(config$profile$environment$file))
       
-      filepath = config$profile$environment$file
+      filepath = get_absolute_path(config$profile$environment$file, base = dir)
       config$profile$environment[["_filepath"]] = filepath
       
       #check if there is a software associated to the environment
@@ -180,7 +184,7 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
         config$profile$environment[["_filepath"]] = filepath
         config$logger$INFO("Remote environment file downloaded and stored at %s", filepath)
       }
-      
+
       loaded <- try(dotenv::load_dot_env(file = filepath))
       if(is(loaded,"try-error")){
         errMsg <- sprintf("Error while trying to load environment from env file '%s'", basename(filepath))
@@ -221,9 +225,6 @@ initWorkflow <- function(file, dir, jobDirPath = NULL, handleMetadata = TRUE, se
       profile$setOption(option_name, config$profile$options[[option_name]])
     }
   }
-  
-  #session_wd
-  config$session_wd <- getwd()
 
   #load source scripts
   #--------------------

@@ -352,7 +352,8 @@ filter_sf_by_cqlfilter <- function(sfdata, cqlfilter){
 #' @export
 #'
 extract_cell_components <- function(str){
-  lines <- unlist(strsplit(str, get_line_separator()))
+  separator = if(get_line_separator() == "_\n") "_\\r?\\n" else get_line_separator()
+  lines <- unlist(strsplit(str, separator))
   return(lines)
 }
 
@@ -600,7 +601,7 @@ unload_workflow_environment <- function(config){
       tmp <- dotenv_ignore_empty_lines(tmp)
       if (length(tmp) > 0){
         tmp <- lapply(tmp, dotenv_parse_dot_line)
-        tmp <- structure(.Data = lapply(tmp, "[[", "value"), .Names = sapply(tmp, "[[", "key"))
+        tmp <- structure(.Data = lapply(tmp, "[[", "value"), names = sapply(tmp, "[[", "key"))
         
         #remove env vars based on .env file
         Sys.unsetenv(names(tmp))
@@ -760,7 +761,7 @@ get_config_resource_path <- function(config, path){
   is_url <- regexpr("(http|https)[^([:blank:]|\\\"|<|&|#\n\r)]+", path) > 0
   if(is_url) return(path)
   if(!is_absolute_path(path)){
-    path_root = config$root
+    path_root = config$wd
     mtch = gregexpr("\\.\\./", path)[[1]]
     mtch = mtch[mtch != -1]
     if(length(mtch)>0) for(i in 1:length(mtch)){
